@@ -442,3 +442,58 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+
+// lseek system call:
+
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
+#define MAX_FILESIZE 4294967295 // ==> (2**32 - 1) //file size is stored in unsigned-int
+
+int sys_lseek(void){
+	int fd, offset, whence, newOffset;
+	struct file *f;
+
+	// error handling while accessing arguemnts:
+	if(argfd(0, &fd, &f) < 0){
+		return -1;
+	}
+	else if(argint(1, &offset) < 0){
+		return -1;
+	}
+	else if(argint(2, &whence) < 0){
+		return -1;
+	}
+
+	// checking validity of arguments:
+	if(fd < 0 || (whence < 0 || whence > 2)){
+		return -1;
+	}
+
+	switch(whence){
+		case SEEK_SET:
+			newOffset = offset;
+			break;
+		case SEEK_CUR:
+			newOffset = f->off + offset;
+			break;
+		case SEEK_END:
+			newOffset = f->ip->size + offset;
+			break;
+		default:
+			return -1;
+	}
+
+	if(newOffset < 0){
+		return -1;
+	}
+	else if(newOffset > MAX_FILESIZE){
+		return -1;
+	}
+
+	f->off = newOffset;
+
+	return newOffset;
+}
