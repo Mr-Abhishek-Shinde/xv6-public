@@ -3,40 +3,35 @@
 #include "user.h"
 #include "fcntl.h"
 
-#define SIZE 10
+#define SIZE 5
 
-// usage: arg1 --> filename, arg2 --> whence.
+//  arg1 --> filename
 int main(int argc, char* argv[]){
-	int fd, whence, newOffset;
+	int fd, n;
 	char buff[SIZE + 1];
-	//char temp[SIZE];
 
 	if((fd = open(argv[1], O_RDWR)) < 0){
 		printf(2, "Failed to open the file!\n");
 		exit();
 	}
 
-	whence = atoi(argv[2]);
-
-	//if(whence == 1){
-	//	read(fd, temp, SIZE);
-	//}
-
-	newOffset = lseek(fd, 5, whence);
-
-	if(newOffset < 0){
-		printf(2, "lseek failed!\n");
-		close(fd);
-		exit();
-	}
-
-	printf(2, "lseek done.\n");
-	printf(2, "Printing 10 characters to verify:\n");
-
-	int n = read(fd, buff, SIZE);
+	printf(1, "Moving to offset 5 and printing 5 characters:\n");
+	lseek(fd, 5, 0);
+	n = read(fd, buff, SIZE);
 	buff[n] = '\0';
-
 	printf(1, "%s\n", buff);
+
+	printf(1, "Moving to offset 5 from current and printing 5 characters:\n");
+        lseek(fd, 5, 1);
+        n = read(fd, buff, SIZE);
+        buff[n] = '\0';
+        printf(1, "%s\n", buff);
+
+	printf(1, "Moving to offset -5 from end and printing 5 characters:\n");
+        lseek(fd, -5, 2);
+        n = read(fd, buff, SIZE);
+        buff[n] = '\0';
+        printf(1, "%s\n", buff);
 
 	close(fd);
 
