@@ -80,6 +80,7 @@ void            lapiceoi(void);
 void            lapicinit(void);
 void            lapicstartap(uchar, uint);
 void            microdelay(int);
+void		lapicwWrapper(int);
 
 // log.c
 void            initlog(int dev);
@@ -120,6 +121,8 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int		nice(int pid, int prior);
+int		ps(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

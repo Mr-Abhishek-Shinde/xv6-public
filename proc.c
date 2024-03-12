@@ -7,6 +7,12 @@
 #include "proc.h"
 #include "spinlock.h"
 
+// Macros used for priority scheduling:
+#define TIMER_VALUE 10000000
+#define MIN_PRIOR 100 // default value
+#define FORK_PRIOR 110
+#define PLIMIT 1000000 // arbitrary value but lesser than the max value a uint can store
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -88,6 +94,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->prior = MIN_PRIOR;
 
   release(&ptable.lock);
 
@@ -215,6 +222,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->prior = FORK_PRIOR;
 
   release(&ptable.lock);
 
@@ -322,13 +330,16 @@ wait(void)
 void
 scheduler(void)
 {
-  struct proc *p;
+  struct proc *p, *p1;
+  struct proc *highPriorProc;
+  uint timerPeriod = TIMER_VALUE;
   struct cpu *c = mycpu();
   c->proc = 0;
   
   for(;;){
     // Enable interrupts on this processor.
     sti();
+    highPriorProc = 0;
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
@@ -336,19 +347,43 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      if(highPriorProc == 0 || p->prior > highPriorProc->prior){
+	highPriorProc = p;
+      }
+    }
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+    if(highPriorProc != 0){
+	p = highPriorProc;
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+	// Switch to chosen process.  It is the process's job
+	// to release ptable.lock and then reacquire it
+	// before jumping back to us.
+	c->proc = p;
+	switchuvm(p);
+	p->state = RUNNING;
+
+	timerPeriod = ((p->prior) * TIMER_VALUE);
+	timerPeriod = timerPeriod * 0.01;
+	//cprintf("pid: %d, prior: %d, timerval: %d, plimit: %d, tiimer: %d\n", p->pid, p->prior, TIMER_VALUE, PLIMIT, timerPeriod);
+
+	lapicwWrapper(timerPeriod);
+
+	swtch(&(c->scheduler), p->context);
+	switchkvm();
+
+	// Aging to prevent starvation:
+	for(p1 = ptable.proc; p1 < &ptable.proc[NPROC]; p1++){
+		if(p1->pid == 1 || p1->pid == 2 || p1 == p || p1->state != RUNNABLE || p1->prior > p->prior){
+			continue;
+		}
+		if(p1->prior + 1 <= PLIMIT){
+			p1->prior += 1;
+		}
+	}
+
+	// Process is done running for now.
+	// It should have changed its p->state before coming back.
+	c->proc = 0;
     }
     release(&ptable.lock);
 
@@ -531,4 +566,42 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+// Function to change the priority of the process to new priority:
+int nice(int pid, int prior){
+	struct proc *p;
+
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+		if(p->pid == pid){
+			p->prior = prior;
+			break;
+		}
+	}
+	release(&ptable.lock);
+	return pid;
+}
+
+// Function to print the process details (process status):
+int ps(){
+	static char *states[] = {
+		[SLEEPING]  "SLEEPING",
+		[RUNNABLE]  "RUNNABLE",
+		[RUNNING]   "RUNNING",
+	};
+
+	struct proc *p;
+
+	sti();
+	acquire(&ptable.lock);
+
+	cprintf("pid \t name \t priority \t state\n");
+	for(p = ptable.proc; p < &ptable.proc[NPROC] && p->pid != 0; p++){
+		cprintf("%d \t %s \t %d \t\t %s\n", p->pid, p->name, p->prior, states[p->state]);
+	}
+
+	release(&ptable.lock);
+
+	return 23;
 }

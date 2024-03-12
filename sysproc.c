@@ -89,3 +89,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// function to call sys_ps():
+int sys_ps(void){
+	return ps();
+}
+
+// function to call sys_nice():
+int sys_nice(void){
+	int pid, prior;
+
+	if(argint(0, &pid) < 0){
+		return -1;
+	}
+	if(argint(1, &prior) < 0){
+		return -1;
+	}
+
+	return nice(pid, prior);
+}

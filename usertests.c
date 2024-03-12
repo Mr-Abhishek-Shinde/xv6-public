@@ -1745,6 +1745,73 @@ rand()
   return randstate;
 }
 
+// CUSTOM USERTEST FOR SCHEDULING STARTS HERE
+// since xv6 doesn't support printing floating point number, so custom fxn for that:
+void printFloat(float num){
+    int intPart = (int)num;
+    float decPart = num - intPart;
+
+    printf(1, "%d.", intPart);
+
+    for (int i = 0; i < 2; i++) {
+        decPart *= 10;
+        int digit = (int)decPart;
+        printf(1, "%d", digit);
+        decPart -= digit;
+    }
+}
+
+void childs(int n)
+{
+	int pid = getpid();
+	int k = 1;
+	printf(1, "Child %d with pid - %d started.\n", n, pid);
+	for(int i = 0; i < 100000000; i++){
+		if(i % 10000000 == 0){
+			if(i == 50000000 && n == 3){
+				//nice(pid, 2000);
+				//printf(1, "\nNow increased priority of process with pid - %d to 2000\n\n", pid);
+			}
+			//ps();
+			printf(1, "Process with pid - %d running %d0 millionth iteration!\n", pid, k);
+			k++;
+		}
+	       for(int j = 0; j < 100; j++){
+		       asm("nop");
+	       }
+	}
+	exit();
+}
+
+void checkSched()
+{
+	printf(1, "\nScheduling test\n");
+	printf(1, "Parent process with pid - %d started.\n", getpid());
+
+	uint startTicks = uptime();
+	for(int i = 0; i < 4; i++){
+	       if(fork() == 0){
+		       childs(i + 1);
+	       }
+	}
+	for(int i = 0; i < 4; i++){
+		wait();
+	}
+	uint endTicks = uptime();
+
+	printf(1, "Parent process finished.\n");
+
+	uint ticksTaken = endTicks - startTicks;
+	printf(1, "Clock ticks required: %d\n", ticksTaken);
+	float tput = (float) (4 * 100) / ticksTaken;
+	printf(1, "Throughput : ");
+	printFloat(tput);
+	printf(1, " Processes/sec\n");
+
+	printf(1, "Scheduling test ok\n\n");
+}
+// CUSTOM USERTEST FOR SCHEDULING ENDS HERE
+
 int
 main(int argc, char *argv[])
 {
@@ -1796,6 +1863,8 @@ main(int argc, char *argv[])
   bigdir(); // slow
 
   uio();
+
+  checkSched();
 
   exectest();
 

@@ -51,6 +51,11 @@ lapicw(int index, int value)
   lapic[ID];  // wait for write to finish, by reading
 }
 
+// Wrapper function for lapicw included in defs.h to use in scheduler() in proc.c
+void lapicwWrapper(int value){
+	lapicw(TICR, value);
+}
+
 void
 lapicinit(void)
 {
